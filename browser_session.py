@@ -9,6 +9,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+class InsufficientPointsError(Exception):
+    pass
+
+class RedemptionFailedError(Exception):
+    pass
+
 class Session:
     def __init__(self, browser: 'Browser'):
         self.browser = browser
@@ -98,16 +105,23 @@ class Session:
                 break
             
         if not matched:
-            raise Exception(f"No matching character option found for index {character_idx} (characters: {texts})")
+            raise RedemptionFailedError(f"No matching character option found for index {character_idx} (characters: {texts})")
 
         await self.page.get_by_role("spinbutton").fill(str(quantity))
         close_button = self.page.get_by_role("button", name="×")
-        try:
-            await self.page.get_by_role("button", name="Redeem", exact=True).click(timeout=1000)
+        try:            
+            await self.page.get_by_role("button", name="Redeem", exact=True).click(timeout=2000)
             await close_button.wait_for(state="detached", timeout=5000)
-        except:
-            await close_button.click()
-            raise Exception("Redemption failed, possibly due to insufficient points.")
+            
+        except Exception as e:
+            # If the dialog is still open, it likely failed.
+            if await close_button.is_visible():
+                await close_button.click()
+                # Try to read error message if any?
+                # For now, raise a generic RedemptionFailedError or InsufficientPointsError if we suspect it.
+                # Since we can't easily distinguish without more UI knowledge, we'll wrap it.
+                raise RedemptionFailedError(f"Redemption failed: {str(e)}")
+            raise e
 
 
 credentials = {}
