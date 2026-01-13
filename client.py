@@ -45,8 +45,17 @@ if __name__ == "__main__":
         client = RavenfallClient()
         try:
             # Example call (will fail if server not running or users don't exist)
-            points = await client.get_total_loyalty_points(["cubedhelperbot", "earthedcube", "fiddledcube"])
-            print(points)
+            # points = await client.get_total_loyalty_points([
+            #     "cubedhelperbot", "earthedcube", "fiddledcube", "freshedcube", "glorpedcube", 
+            #     "kettledcube", "loathedcube"
+            # ])
+            # print(points)
+            result = await client.redeem_items("raid_scroll", 3, [
+                {"username": "abrokecube", "id": "1"},
+                {"username": "borkedcube", "id": "2"},
+                {"username": "corpsedcube", "id": "1"}
+            ])
+            print(result)
             pass
         except Exception as e:
             print(e)

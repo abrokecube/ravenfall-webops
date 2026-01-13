@@ -60,7 +60,8 @@ class RedemptionService:
                     
                     # Halving strategy loop
                     redemption_success = False
-                    while amount_to_try > 0:
+                    halves = 0
+                    while amount_to_try > 0 and halves < 3:
                         try:
                             logger.info(f"Redeeming {amount_to_try} {item.name}(s) for {username}#{char_idx}")
                             await session.redeem_loyalty_item(item.name, amount_to_try, char_idx)
@@ -73,6 +74,7 @@ class RedemptionService:
                         except (RedemptionFailedError, InsufficientPointsError):
                             logger.warning(f"Redemption of {amount_to_try} failed for {username}#{char_idx}. Retrying with half...")
                             amount_to_try //= 2
+                            halves += 1
                         except Exception as e:
                             logger.error(f"Unexpected error redeeming for {username}#{char_idx}: {e}")
                             amount_to_try = 0 # Force break

@@ -108,10 +108,15 @@ class Session:
             raise RedemptionFailedError(f"No matching character option found for index {character_idx} (characters: {texts})")
 
         await self.page.get_by_role("spinbutton").fill(str(quantity))
+        await self.page.get_by_role("spinbutton").blur()
         close_button = self.page.get_by_role("button", name="×")
-        try:            
+        try:
+            if quantity > 1:
+                await expect(self.page.locator(".confirm-header")).to_contain_text(f"to redeem {quantity}x {item_name}", timeout=2000)
+            else:
+                await expect(self.page.locator(".confirm-header")).to_contain_text(f"to redeem  {item_name}", timeout=2000)
             await self.page.get_by_role("button", name="Redeem", exact=True).click(timeout=2000)
-            await close_button.wait_for(state="detached", timeout=5000)
+            await close_button.wait_for(state="detached", timeout=2000)
             
         except Exception as e:
             # If the dialog is still open, it likely failed.
@@ -132,14 +137,14 @@ with open('credentials.csv', newline='') as csvfile:
 
 async def main():
     async with async_playwright() as p:
-        # browser = await p.chromium.launch(headless=False)
-        browser = await p.chromium.launch()
+        browser = await p.chromium.launch(headless=False)
+        # browser = await p.chromium.launch()
         session = Session(browser)
         await session.start()
-        login = "queuedcube"
+        login = "trimmedcube"
         await session.login(login, credentials[login], "loyalty")
         print(f"Loyalty Points: {await session.get_loyalty_points()}")
-        await session.redeem_loyalty_item("Raid Scroll", 1, 1)
+        await session.redeem_loyalty_item("Raid Scroll", 5, 2)
         print(f"Loyalty Points after: {await session.get_loyalty_points()}")
         await browser.close()        
 

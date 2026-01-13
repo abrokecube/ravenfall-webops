@@ -4,9 +4,13 @@ from typing import List
 import logging
 import uvicorn
 from contextlib import asynccontextmanager
+import os
 
 from session_manager import SessionManager
 from redemption import RedemptionService
+
+from dotenv import load_dotenv
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +19,10 @@ redemption_service = RedemptionService(session_manager)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await session_manager.start(headless=False)
+    headless = os.getenv("HEADLESS", "true") not in ["false", "0", "no"]
+    if not headless:
+        print("running with browser windows")
+    await session_manager.start(headless=headless)
     yield
     await session_manager.stop()
 

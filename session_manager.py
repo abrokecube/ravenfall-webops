@@ -9,7 +9,7 @@ from browser_session import Session
 logger = logging.getLogger(__name__)
 
 class SessionManager:
-    def __init__(self, max_sessions: int = 3, idle_timeout: int = 300):
+    def __init__(self, max_sessions: int = 5, idle_timeout: int = 300):
         self.max_sessions = max_sessions
         self.idle_timeout = idle_timeout
         self.sessions: Dict[str, Session] = {}
@@ -65,29 +65,46 @@ class SessionManager:
         if username not in self.credentials:
             raise ValueError(f"No credentials found for user {username}")
 
+        # Ensure lock exists safely
         async with self._pool_lock:
-            if username in self.sessions:
-                self.last_used[username] = time.time()
-                self.active_sessions.add(username)
-                return self.sessions[username]
+            if username not in self.session_locks:
+                self.session_locks[username] = asyncio.Lock()
+            user_lock = self.session_locks[username]
 
-            # Check if we need to make room
-            if len(self.sessions) >= self.max_sessions:
-                await self._prune_sessions()
+        async with user_lock:
+            # Check if session exists
+            async with self._pool_lock:
+                if username in self.sessions:
+                    self.last_used[username] = time.time()
+                    self.active_sessions.add(username)
+                    return self.sessions[username]
+
+                # Check if we need to make room
                 if len(self.sessions) >= self.max_sessions:
-                     raise Exception("Max sessions reached and no idle sessions available to prune.")
+                    await self._prune_sessions()
+                    if len(self.sessions) >= self.max_sessions:
+                         raise Exception("Max sessions reached and no idle sessions available to prune.")
 
-            session = Session(self.browser)
-            await session.start()
+                # Reserve the slot and create session object
+                session = Session(self.browser)
+                self.sessions[username] = session
+                self.active_sessions.add(username)
+                self.last_used[username] = time.time()
+
+            # Perform login outside the pool lock but inside user lock
             try:
+                await session.start()
                 await session.login(username, self.credentials[username], "loyalty")
             except Exception as e:
+                # Cleanup if failed
+                async with self._pool_lock:
+                    if username in self.sessions:
+                        del self.sessions[username]
+                    if username in self.active_sessions:
+                        self.active_sessions.remove(username)
                 await session.close()
                 raise e
             
-            self.sessions[username] = session
-            self.last_used[username] = time.time()
-            self.active_sessions.add(username)
             return session
 
     async def release_session(self, username: str):
