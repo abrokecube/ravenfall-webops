@@ -10,6 +10,11 @@ from session_manager import SessionManager
 from redemption import RedemptionService
 
 from dotenv import load_dotenv
+
+
+with open('pid', 'w') as f:
+    f.write(str(os.getpid()))
+    
 load_dotenv()
 
 logger = logging.getLogger(__name__)
