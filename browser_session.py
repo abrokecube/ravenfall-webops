@@ -44,6 +44,7 @@ class Session:
         await self.goto_if_not(url)
         await self.page.get_by_role("textbox", name="USERNAME").fill(username)
         await self.page.get_by_role("textbox", name="PASSWORD").fill(password)
+        await asyncio.sleep(0.5)
         await self.page.get_by_role("button", name="Login").click()
         
         if redirect:
