@@ -11,3 +11,4 @@ wheels/
 
 credentials.csv
 .env
+pid
