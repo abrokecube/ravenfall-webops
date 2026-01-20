@@ -81,7 +81,7 @@ async def get_loyalty_points(request: LoyaltyPointsRequest):
                 # We can check if username is in active_sessions or just call release safely.
                 # session_manager.release_session handles checking.
                 await session_manager.release_session(username)
-                return 0
+                return -1
 
     tasks = [fetch_points(u) for u in request.usernames]
     results = await asyncio.gather(*tasks)
