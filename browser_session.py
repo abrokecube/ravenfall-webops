@@ -3,6 +3,7 @@ from playwright.async_api import async_playwright, expect
 from typing import TYPE_CHECKING
 import csv
 import logging
+import os
 
 if TYPE_CHECKING:
     from playwright.async_api import Browser, Page
@@ -131,6 +132,9 @@ class Session:
 
 
 credentials = {}
+if not os.path.exists('credentials.csv'):
+    with open('credentials.csv', 'w') as f:
+        f.write("username,password\n")
 with open('credentials.csv', newline='') as csvfile:
     reader = csv.DictReader(csvfile)
     for row in reader:
