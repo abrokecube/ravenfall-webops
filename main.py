@@ -96,7 +96,7 @@ def main():
     """
     # The monitor thread is already started when importing 'app' from 'api'
     # because of the module-level code in api.py.
-    uvicorn.run(app, host="0.0.0.0", port=7102)
+    uvicorn.run(app, host=os.getenv("SERVER_HOST", "0.0.0.0"), port=int(os.getenv("SERVER_PORT", 7102)))
 
 if __name__ == "__main__":
     main()
