@@ -24,7 +24,7 @@ redemption_service = RedemptionService(session_manager)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    headless = os.getenv("HEADLESS", "true") not in ["false", "0", "no"]
+    headless = os.getenv("HEADLESS", os.getenv("headless", "true")).lower() not in ["false", "0", "no"]
     if not headless:
         print("running with browser windows")
     await session_manager.start(headless=headless)

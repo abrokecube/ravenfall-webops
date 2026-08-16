@@ -1,9 +1,10 @@
 import asyncio
-from playwright.async_api import async_playwright, expect
-from typing import TYPE_CHECKING
 import csv
 import logging
 import os
+import re
+from playwright.async_api import async_playwright, TimeoutError
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from playwright.async_api import Browser, Page
@@ -46,7 +47,7 @@ class Session:
         await self.page.get_by_role("textbox", name="USERNAME").fill(username)
         await self.page.get_by_role("textbox", name="PASSWORD").fill(password)
         await asyncio.sleep(0.5)
-        await self.page.get_by_role("button", name="Login").click()
+        await self.page.get_by_role("button", name="Sign in").click()
         
         if redirect:
             await self.page.wait_for_url(f"https://www.ravenfall.stream/{redirect}")
@@ -75,8 +76,8 @@ class Session:
             raise Exception("Session not started. Call start() before get_loyalty_points().")
         
         await self.goto_if_not("https://www.ravenfall.stream/loyalty")
-        points = await self.page.locator("body > div.page.dashboard > div.main > div.content.px-4 > div.loyalty-streamer-details > div.loyalty-stats-rows > div.stats-row.points > div.stats-value").inner_text()
-        return int(points)
+        points = await self.page.locator(".rf-stat", has=self.page.get_by_text("Loyalty points", exact=True)).locator(".rf-stat__value").inner_text()
+        return int(points.replace(",", "").strip())
     
     async def redeem_loyalty_item(self, item_name: str, quantity: int = 1, character_idx: int = 1):
         if self.page is None:
@@ -86,47 +87,67 @@ class Session:
     
         await self.goto_if_not("https://www.ravenfall.stream/loyalty")
         
-        redeem_button_locator = self.page.get_by_text(item_name).locator("../..").locator(".btn-reward-redeem")
-        combobox = self.page.get_by_role("combobox")        
-        option_locator = self.page.get_by_role("option")
+        # Locate the reward card for the requested item, then its redeem button
+        reward_card = self.page.locator(".rf-reward").filter(
+            has=self.page.get_by_text(item_name, exact=True)
+        )
+        redeem_button_locator = reward_card.locator(".rf-reward__buy button")
+        dialog = self.page.get_by_role("dialog")
         
+        # Close any dialog left open by a previous attempt
+        if await dialog.is_visible():
+            await dialog.get_by_role("button", name="Close").click()
+            await dialog.wait_for(state="detached")
+
         await asyncio.sleep(0.5)
-        for _ in range(10):        
-            await redeem_button_locator.click()
-            if await combobox.is_visible():
+        for _ in range(10):
+            if not await dialog.is_visible():
+                try:
+                    await redeem_button_locator.click(force=True, timeout=3000)
+                except TimeoutError:
+                    pass
+                if not await dialog.is_visible():
+                    await redeem_button_locator.evaluate("el => el.click()")
+            try:
+                await dialog.wait_for(state="visible", timeout=2000)
                 break
-            await asyncio.sleep(1)
+            except TimeoutError:
+                await asyncio.sleep(1)
         else:
             raise Exception("Redeem dialog did not appear.")
-        texts = await option_locator.all_text_contents()
-        matched = False
-        for i, t in enumerate(texts):
-            if t.strip().endswith(f"#{character_idx-1}"):
-                await combobox.select_option(value=t)
-                matched = True
-                break
-            
-        if not matched:
-            raise RedemptionFailedError(f"No matching character option found for index {character_idx} (characters: {texts})")
+        
+        # Pick the character matching the requested slot (0-indexed)
+        character_slot = f"Slot {character_idx - 1}"
+        char_button = dialog.locator(".rf-char").filter(
+            has_text=re.compile(f"{character_slot.lower()}$", re.IGNORECASE)
+        )
+        if await char_button.count() == 0:
+            await dialog.get_by_role("button", name="Close").click()
+            raise RedemptionFailedError(f"No matching character option found for index {character_idx} (expected {character_slot})")
+        await char_button.click()
 
-        await self.page.get_by_role("spinbutton").fill(str(quantity))
-        await self.page.get_by_role("spinbutton").blur()
-        close_button = self.page.get_by_role("button", name="×")
+        # Set the quantity and let the UI recompute the purchase summary
+        quantity_input = dialog.get_by_role("spinbutton")
+        await quantity_input.fill(str(quantity))
+        await quantity_input.blur()
+
+        redeem_confirm = dialog.get_by_role("button", name="Redeem", exact=True)
+        # The UI recomputes affordability server-side after the blur, so poll long enough
+        for _ in range(40):
+            if await redeem_confirm.is_disabled():
+                await dialog.get_by_role("button", name="Close").click()
+                await dialog.wait_for(state="detached")
+                raise InsufficientPointsError(f"Insufficient points to redeem {quantity}x {item_name}")
+            await asyncio.sleep(0.1)
+
         try:
-            if quantity > 1:
-                await expect(self.page.locator(".confirm-header")).to_contain_text(f"to redeem {quantity}x {item_name}", timeout=2000)
-            else:
-                await expect(self.page.locator(".confirm-header")).to_contain_text(f"to redeem  {item_name}", timeout=2000)
-            await self.page.get_by_role("button", name="Redeem", exact=True).click(timeout=2000)
-            await close_button.wait_for(state="detached", timeout=2000)
+            await redeem_confirm.click(timeout=10000)
+            await dialog.wait_for(state="detached", timeout=10000)
             
         except Exception as e:
             # If the dialog is still open, it likely failed.
-            if await close_button.is_visible():
-                await close_button.click()
-                # Try to read error message if any?
-                # For now, raise a generic RedemptionFailedError or InsufficientPointsError if we suspect it.
-                # Since we can't easily distinguish without more UI knowledge, we'll wrap it.
+            if await dialog.is_visible():
+                await dialog.get_by_role("button", name="Close").click()
                 raise RedemptionFailedError(f"Redemption failed: {str(e)}")
             raise e
 
