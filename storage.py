@@ -14,13 +14,13 @@ def storage_path(username: str) -> Path:
     return Path(STORAGE_DIR) / f"{username}.json"
 
 
-def load_storage(username: str) -> dict | None:
-    path = storage_path(username)
+def load_storage(username: str):
     try:
+        path = storage_path(username)
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except (OSError, json.JSONDecodeError):
-        logger.debug(f"No valid cached storage for {username} at {path}")
+    except (OSError, json.JSONDecodeError, ValueError):
+        logger.debug(f"No valid cached storage for {username}")
         return None
 
 

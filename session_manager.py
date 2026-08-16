@@ -104,7 +104,10 @@ class SessionManager:
                 try:
                     await session.start()
                     await session.login(username, self.credentials[username], "loyalty")
-                    save_storage(username, await session.get_storage_state())
+                    try:
+                        save_storage(username, await session.get_storage_state())
+                    except Exception:
+                        logger.exception(f"Failed to persist storage for {username}")
                 except Exception as e:
                     # Cleanup if failed
                     async with self._pool_lock:
