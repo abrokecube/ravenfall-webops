@@ -1,9 +1,8 @@
 """Live-site integration verification for the cookie-caching feature.
 
-Contract: ``Session.login()`` must return ``True`` when a cached login is
-reused and ``False`` when a fresh login was performed. This behavior does not
-exist yet, so this script is expected to FAIL with
-``AssertionError: expected fresh login, got [None]`` until Tasks 3 and 4 land.
+Contract: ``Session.login()`` returns ``True`` when a cached login is reused
+and ``False`` when a fresh login was performed. This script passes when the
+caching feature works.
 
 This script runs real logins for the ``hackedcube`` account, so it needs
 live-site access and an entry for the account in ``credentials.csv``. It uses
@@ -83,6 +82,22 @@ async def main():
         json.load(f)
     print("corrupt cache triggered fresh login and rewrite")
     await sm3.stop()
+
+    # 4. Schema-invalid cache (valid JSON, wrong shape) also forces a fresh login
+    login_results.clear()
+    with open(cache_path, "w", encoding="utf-8") as f:
+        json.dump({"cookies": []}, f)
+
+    sm4 = SessionManager()
+    await sm4.start(headless=True)
+    session = await sm4.get_session(USERNAME)
+    points4 = await session.get_loyalty_points()
+    await sm4.release_session(USERNAME)
+    print("after-schema-corruption points:", points4)
+    assert login_results == [False], f"expected fresh login after schema corruption, got {login_results}"
+    assert points4 > 0
+    print("schema-invalid cache triggered fresh login")
+    await sm4.stop()
 
     print("ALL CHECKS PASSED")
 

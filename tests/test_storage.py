@@ -44,3 +44,14 @@ def test_delete_missing_is_noop(tmp_storage):
 
 def test_load_invalid_username_returns_none(tmp_storage):
     assert storage_mod.load_storage("../evil") is None
+
+
+def test_load_schema_invalid_returns_none(tmp_storage):
+    storage_mod.save_storage("eve", {"cookies": []})
+    assert storage_mod.load_storage("eve") is None
+
+
+def test_load_schema_valid_returns_state(tmp_storage):
+    state = {"cookies": [{"name": "x", "value": "1", "domain": "example.com", "path": "/"}], "origins": []}
+    storage_mod.save_storage("frank", state)
+    assert storage_mod.load_storage("frank") == state

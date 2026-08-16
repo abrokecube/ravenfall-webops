@@ -40,7 +40,8 @@ class Session:
             self.context = None
             self.page = None
             self.login_username = None
-            logger.info("Session closed, page closed.")
+            self.storage_state = None
+            logger.info("Session closed, context closed.")
     
     async def login(self, username: str, password: str, redirect: str = None):
         if self.page is None:
