@@ -79,7 +79,7 @@ class Session:
         except TimeoutError:
             return False
 
-    async def storage_state(self):
+    async def get_storage_state(self):
         if self.context:
             return await self.context.storage_state()
         return None
