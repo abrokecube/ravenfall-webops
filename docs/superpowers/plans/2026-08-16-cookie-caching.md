@@ -318,16 +318,16 @@ Replace the current `login` method and add two new methods after it:
         await self.page.get_by_role("button", name="Sign in").click()
         
         if redirect:
-            await self.page.wait_for_url(f"https://www.ravenfall.stream/{redirect}")
+            await self.page.wait_for_url(f"https://www.ravenfall.stream/{redirect}", timeout=60000)
         else:
-            await self.page.wait_for_url("https://www.ravenfall.stream/")
+            await self.page.wait_for_url("https://www.ravenfall.stream/", timeout=60000)
         self.login_username = username
         logger.info(f"Logged in as {username}.")
         return False
 
     async def _is_logged_in(self) -> bool:
         try:
-            await self.page.locator(".rf-stats").wait_for(state="visible", timeout=3000)
+            await self.page.locator(".rf-stats").wait_for(state="visible", timeout=5000)
             return True
         except TimeoutError:
             return False

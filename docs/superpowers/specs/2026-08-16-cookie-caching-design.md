@@ -43,9 +43,10 @@ localStorage), persisted to disk, with verify-on-use.
   cache exists, otherwise `browser.new_context()`, then `self.page = context.new_page()`.
 - `close()` — closes the context; resets `context`, `page`, `login_username`.
 - `login(username, password, redirect=None)` — first, if a cache exists, navigates to
-  `https://www.ravenfall.stream/loyalty` and waits up to ~3s for `.rf-stats` to become
+  `https://www.ravenfall.stream/loyalty` and waits up to 5s for `.rf-stats` to become
   visible. Visible => already authenticated (returns `True`, no credentials typed).
-  Otherwise performs the existing full login flow (returns `False`).
+  Otherwise performs the existing full login flow (returns `False`). Login navigation
+  waits use a 60s timeout to tolerate slow server-side redirects.
 - `get_storage_state()` — returns `await self.context.storage_state()` when a context exists,
   else `None`.
 - `logout()` — unchanged in behavior; also resets the in-memory cache reference.
