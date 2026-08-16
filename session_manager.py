@@ -5,6 +5,7 @@ import time
 from typing import Dict, Optional
 from playwright.async_api import async_playwright, Browser, Playwright
 from browser_session import Session
+from storage import load_storage, save_storage
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ class SessionManager:
                 pass
         
         for username, session in self.sessions.items():
+            await self._persist_session(username)
             await session.close()
         self.sessions.clear()
         
@@ -93,7 +95,7 @@ class SessionManager:
                              continue
 
                     # Reserve the slot and create session object
-                    session = Session(self.browser)
+                    session = Session(self.browser, storage_state=load_storage(username))
                     self.sessions[username] = session
                     self.active_sessions.add(username)
                     self.last_used[username] = time.time()
@@ -102,6 +104,10 @@ class SessionManager:
                 try:
                     await session.start()
                     await session.login(username, self.credentials[username], "loyalty")
+                    try:
+                        save_storage(username, await session.get_storage_state())
+                    except Exception:
+                        logger.exception(f"Failed to persist storage for {username}")
                 except Exception as e:
                     # Cleanup if failed
                     async with self._pool_lock:
@@ -141,9 +147,19 @@ class SessionManager:
         else:
             logger.warning("Could not prune any sessions, all are active.")
 
+    async def _persist_session(self, username: str):
+        session = self.sessions.get(username)
+        if session is None or not session.login_username:
+            return
+        try:
+            save_storage(username, await session.get_storage_state())
+        except Exception:
+            logger.exception(f"Failed to persist storage for {username}")
+
     async def _close_session(self, username: str):
         if username in self.sessions:
             session = self.sessions[username]
+            await self._persist_session(username)
             await session.close()
             del self.sessions[username]
         if username in self.last_used:

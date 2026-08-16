@@ -19,26 +19,42 @@ class RedemptionFailedError(Exception):
     pass
 
 class Session:
-    def __init__(self, browser: 'Browser'):
+    def __init__(self, browser: 'Browser', storage_state=None):
         self.browser = browser
+        self.context = None
         self.page: Page | None = None
         self.login_username: str | None = None
+        self.storage_state = storage_state
         
     async def start(self):
-        self.page = await self.browser.new_page()
+        if self.storage_state:
+            self.context = await self.browser.new_context(storage_state=self.storage_state)
+        else:
+            self.context = await self.browser.new_context()
+        self.page = await self.context.new_page()
         logger.info("Session started, new page created.")
         
     async def close(self):
-        if self.page:
-            await self.page.close()
+        if self.context:
+            await self.context.close()
+            self.context = None
             self.page = None
-            logger.info("Session closed, page closed.")
             self.login_username = None
+            self.storage_state = None
+            logger.info("Session closed, context closed.")
     
     async def login(self, username: str, password: str, redirect: str = None):
         if self.page is None:
             raise Exception("Session not started. Call start() before login().")
-        
+
+        # Reuse a cached login if present and still valid
+        if self.storage_state:
+            await self.goto_if_not("https://www.ravenfall.stream/loyalty")
+            if await self._is_logged_in():
+                self.login_username = username
+                logger.info(f"Using cached login for {username}.")
+                return True
+
         logger.info(f"Logging in as {username}.")
         url = "https://www.ravenfall.stream/login"
         if redirect:
@@ -50,19 +66,33 @@ class Session:
         await self.page.get_by_role("button", name="Sign in").click()
         
         if redirect:
-            await self.page.wait_for_url(f"https://www.ravenfall.stream/{redirect}")
+            await self.page.wait_for_url(f"https://www.ravenfall.stream/{redirect}", timeout=60000)
         else:
-            await self.page.wait_for_url("https://www.ravenfall.stream/")
+            await self.page.wait_for_url("https://www.ravenfall.stream/", timeout=60000)
         self.login_username = username
         logger.info(f"Logged in as {username}.")
+        return False
+
+    async def _is_logged_in(self) -> bool:
+        try:
+            await self.page.locator(".rf-stats").wait_for(state="visible", timeout=5000)
+            return True
+        except TimeoutError:
+            return False
+
+    async def get_storage_state(self):
+        if self.context:
+            return await self.context.storage_state()
+        return None
     
     async def logout(self):
         if self.page is None:
             raise Exception("Session not started. Call start() before logout().")
         
         await self.page.goto("https://www.ravenfall.stream/logout")
-        await self.page.wait_for_url("https://www.ravenfall.stream/")
+        await self.page.wait_for_url("https://www.ravenfall.stream/", timeout=60000)
         self.login_username = None
+        self.storage_state = None
         
     async def goto_if_not(self, url: str):
         if self.page is None:

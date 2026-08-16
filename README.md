@@ -11,3 +11,8 @@ Developed with AI assistance
 - Account login
 - Get loyalty point count
 - Redeem items in the loyalty shop
+
+### Cookie caching
+Authenticated sessions are cached in `.storage/` (one JSON file per account) so accounts
+are not logged in from scratch on every session. Set `STORAGE_DIR` to change the location.
+Delete a file to force that account to log in again on next use.
