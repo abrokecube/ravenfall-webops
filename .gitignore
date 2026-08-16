@@ -12,5 +12,6 @@ wheels/
 credentials.csv
 .env
 pid
+.storage/
 
 .graymatter

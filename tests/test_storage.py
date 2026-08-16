@@ -39,3 +39,4 @@ def test_delete_removes_file(tmp_storage):
 
 def test_delete_missing_is_noop(tmp_storage):
     storage_mod.delete_storage("missing")
+    assert not storage_mod.storage_path("missing").exists()
