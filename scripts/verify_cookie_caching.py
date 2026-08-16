@@ -1,3 +1,15 @@
+"""Live-site integration verification for the cookie-caching feature.
+
+Contract: ``Session.login()`` must return ``True`` when a cached login is
+reused and ``False`` when a fresh login was performed. This behavior does not
+exist yet, so this script is expected to FAIL with
+``AssertionError: expected fresh login, got [None]`` until Tasks 3 and 4 land.
+
+This script runs real logins for the ``hackedcube`` account, so it needs
+live-site access and an entry for the account in ``credentials.csv``. It uses
+an isolated temp storage dir and does not touch ``.storage/``.
+"""
+
 import asyncio
 import json
 import os
