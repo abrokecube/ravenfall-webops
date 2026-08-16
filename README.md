@@ -1,5 +1,6 @@
 # ravenfall-webops
 Ravenfall browser automation server
+Codebase now 80% ai generated!!!!!!
 
 Configuration is done in a `.env` file.  
 Place account credentials in a `credentials.csv` file, first column `username`, second colume `password`  
