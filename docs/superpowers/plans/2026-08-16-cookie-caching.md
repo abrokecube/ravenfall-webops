@@ -18,7 +18,7 @@
 - Create: `conftest.py` — empty file at project root so pytest adds the project root to `sys.path` (needed for `import storage`).
 - Create: `tests/test_storage.py` — unit tests for `storage.py`.
 - Create: `scripts/verify_cookie_caching.py` — live-site integration verification.
-- Modify: `browser_session.py` — `Session` per-user context, cache-aware `login()`, `_is_logged_in()`, `storage_state()`.
+- Modify: `browser_session.py` — `Session` per-user context, cache-aware `login()`, `_is_logged_in()`, `get_storage_state()`.
 - Modify: `session_manager.py` — load cache on session creation, save after login and on close/stop.
 - Modify: `.gitignore` — ignore `.storage/`.
 - Modify: `README.md` — document cookie caching.
@@ -332,7 +332,7 @@ Replace the current `login` method and add two new methods after it:
         except TimeoutError:
             return False
 
-    async def storage_state(self):
+    async def get_storage_state(self):
         if self.context:
             return await self.context.storage_state()
         return None
@@ -395,7 +395,7 @@ In `get_session`, replace the session creation and login block:
                 try:
                     await session.start()
                     await session.login(username, self.credentials[username], "loyalty")
-                    save_storage(username, await session.storage_state())
+                    save_storage(username, await session.get_storage_state())
                 except Exception as e:
 ```
 
@@ -409,7 +409,7 @@ Add this method to `SessionManager` (e.g. before `_close_session`):
         if session is None or not session.login_username:
             return
         try:
-            save_storage(username, await session.storage_state())
+            save_storage(username, await session.get_storage_state())
         except Exception:
             logger.exception(f"Failed to persist storage for {username}")
 ```

@@ -46,16 +46,16 @@ localStorage), persisted to disk, with verify-on-use.
   `https://www.ravenfall.stream/loyalty` and waits up to ~3s for `.rf-stats` to become
   visible. Visible => already authenticated (returns `True`, no credentials typed).
   Otherwise performs the existing full login flow (returns `False`).
-- `storage_state()` — returns `await self.context.storage_state()` when a context exists,
+- `get_storage_state()` — returns `await self.context.storage_state()` when a context exists,
   else `None`.
 - `logout()` — unchanged in behavior; also resets the in-memory cache reference.
 
 **`SessionManager` (`session_manager.py`)**
 
 - `get_session()` — loads `load_storage(username)` and passes it to `Session`. After a
-  successful `start()` + `login()`, saves `save_storage(username, await session.storage_state())`.
+  successful `start()` + `login()`, saves `save_storage(username, await session.get_storage_state())`.
 - `_close_session()` and `stop()` — before closing a session whose `login_username` is set,
-  save its current `storage_state()` (captures any cookie rotation during the session).
+  save its current `get_storage_state()` (captures any cookie rotation during the session).
 - Cleanup on login failure unchanged: session closed, cache not written for that attempt.
 
 ### Data Flow
@@ -65,8 +65,8 @@ localStorage), persisted to disk, with verify-on-use.
 2. `login()`: cache present => navigate to `/loyalty`, wait for `.rf-stats`. Found => logged
    in; `login_username` set; return `True`. Not found => run the full login flow; return `False`.
 3. After a successful login (either path), `SessionManager` persists the context's
-   `storage_state()` to `.storage/<user>.json`.
-4. On prune or shutdown, sessions that were logged in have their `storage_state()` saved
+   `get_storage_state()` to `.storage/<user>.json`.
+4. On prune or shutdown, sessions that were logged in have their `get_storage_state()` saved
    before the context is closed.
 
 ### Logged-In Check
